@@ -1,14 +1,13 @@
 use std::io::{self, Write};
 use std::{result, fmt};
 use serde::ser::{self, Serialize, Impossible};
-use write::Writer;
+use write::{Writer, LineEnding};
 use parse::Item;
 
 #[derive(Copy, Clone, Debug)]
 pub enum UnsupportedType {
     Bool,
     Bytes,
-    None,
     Unit,
     Seq,
     Map,
@@ -194,7 +193,7 @@ impl<'a, 'k, W: Write + 'a> ser::Serializer for ValueSerializer<'a, 'k, W> {
     }
 
     fn serialize_none(self) -> Result<()> {
-        Err(UnsupportedType::None.into())
+        Ok(())
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<()> {
@@ -567,7 +566,15 @@ impl<'a, W: Write> ser::SerializeStruct for MapSerializer<'a, W> {
 }
 
 pub fn to_writer<W: Write, T: Serialize + ?Sized>(writer: W, value: &T) -> Result<()> {
-    let mut ser = Serializer::new(Writer::new(writer, Default::default()));
+    let get_line_ending = || -> LineEnding {
+        if cfg!(windows) {
+            LineEnding::CrLf
+        } else {
+            LineEnding::Linefeed
+        }
+    };
+
+    let mut ser = Serializer::new(Writer::new(writer, get_line_ending()));
 
     value.serialize(&mut ser)
 }
